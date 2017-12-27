@@ -8,12 +8,14 @@
 
 /* Begin PBXFileReference section */
 		C06C70901FF2625A009316FF /* linkmaper.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = linkmaper.py; sourceTree = "<group>"; };
+		C06C70911FF397F6009316FF /* ipaparser.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = ipaparser.py; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
 		C06C70851FF261FF009316FF = {
 			isa = PBXGroup;
 			children = (
+				C06C70911FF397F6009316FF /* ipaparser.py */,
 				C06C70901FF2625A009316FF /* linkmaper.py */,
 			);
 			sourceTree = "<group>";

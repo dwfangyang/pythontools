@@ -143,25 +143,29 @@ def writeComparation(newModelMap,oldModelMap,filehandle):
     declist.sort(key=symbolSort,reverse=True)
     inclist.sort(key=symbolSort,reverse=True)
     dellist.sort(key=symbolSort,reverse=True)
-    filehandle.write('新增部分：%-20d,代码：%-20d(%d项)\n' % (newsize,newcodesize,len(newappears)))
-    for i,model in enumerate(newlist):
-        filehandle.write('%-40s\t%-20d\t%-20d\n' % (model.file,model.size,model.codeSize))
-    filehandle.write('\n增加部分：%-20d,代码：%-20d(%d项)\n' % (incsize,inccodesize,len(increase)))
-    for i,model in enumerate(inclist):
-        filehandle.write('%-40s\t%-20d\t%-20d\n' % (model.file,model.size,model.codeSize))
-    filehandle.write('\n减少部分：%-20d,代码：%-20d(%d项)\n' % (decsize,deccodesize,len(decrease)))
-    for i,model in enumerate(declist):
-        filehandle.write('%-40s\t%-20d\t%-20d\n' % (model.file,model.size,model.codeSize))
-    filehandle.write('\n删除部分：%-20d,代码：%-20d(%d项)\n\n' % (delsize,delcodesize,len(deleted)))
-    for i,model in enumerate(dellist):
-        filehandle.write('%-40s\t%-20d\t%-20d\n' % (model.file,model.size,model.codeSize))
+    if len(newappears) > 0:
+        filehandle.write('新增部分：%-20d,代码：%-20d(%d项)\n' % (newsize,newcodesize,len(newappears)))
+        for i,model in enumerate(newlist):
+            filehandle.write('%-40s\t%-20d\t%-20d\n' % (model.file,model.size,model.codeSize))
+    if len(increase) > 0:
+        filehandle.write('\n增加部分：%-20d,代码：%-20d(%d项)\n' % (incsize,inccodesize,len(increase)))
+        for i,model in enumerate(inclist):
+            filehandle.write('%-40s\t%-20d\t%-20d\n' % (model.file,model.size,model.codeSize))
+    if len(decrease) > 0:
+        filehandle.write('\n减少部分：%-20d,代码：%-20d(%d项)\n' % (decsize,deccodesize,len(decrease)))
+        for i,model in enumerate(declist):
+            filehandle.write('%-40s\t%-20d\t%-20d\n' % (model.file,model.size,model.codeSize))
+    if len(deleted) > 0:
+        filehandle.write('\n删除部分：%-20d,代码：%-20d(%d项)\n\n' % (delsize,delcodesize,len(deleted)))
+        for i,model in enumerate(dellist):
+            filehandle.write('%-40s\t%-20d\t%-20d\n' % (model.file,model.size,model.codeSize))
 
-filelinkmap = open('/Users/fangyang/Downloads/pyLinkmap/YYMobile-LinkMap-normal-arm64.txt')
+filelinkmap = open('/Users/fangyang/Downloads/YYMobile-LinkMap-normal-arm64.txt')
 oldmodelmap = getSymbolmap(filelinkmap.readlines())
 oldmodelmap = getGroupedSymbolmap(oldmodelmap)
 sortedOldSymbols = sortSymbols(oldmodelmap)
 
-filelinkmap = open('/Users/fangyang/Downloads/pyLinkmap/YYMobile-LinkMap-normal-arm64(1).txt')
+filelinkmap = open('/Users/fangyang/Downloads/YYMobile-LinkMap-normal-arm64_new.txt')
 newmodelmap = getSymbolmap(filelinkmap.readlines())
 newmodelmap = getGroupedSymbolmap(newmodelmap)
 sortedNewSymbols = sortSymbols(newmodelmap)
