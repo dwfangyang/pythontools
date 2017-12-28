@@ -1,6 +1,6 @@
 # coding=utf-8 ##以utf-8编码储存中文字符
 
-#import sys
+import sys
 #reload(sys)
 #sys.setdefaultencoding('utf-8')
 dataOffset = 0  #data segment start address
@@ -9,6 +9,14 @@ class SymbolModel:
     file = ''
     size = 0
     codeSize = 0
+
+def binarySize(size):
+    if size < 1024:
+        return '%5.0f'%float(size) +'B'
+    elif size < 1024*1024:
+        return '%5.1f'%(float(size)/1024) + 'KB'
+    else:
+        return '%5.1f'%(float(size)/(1024*1024)) + 'MB'
 
 def getSymbolmap(content):
     partition = 0 #part num in linkmap, typically objects:1 sections:2 symbols:3 <<dead>>:4
@@ -93,7 +101,7 @@ def writeSymbolsLayout(filehandle,symbolModels):
     name = ('目标文件名','总数据大小','代码段大小')
     filehandle.write('%-40s\t%-30s\t%-20s\n' % name )#('%-38s\t%-20s\t%-20s' % (name,name,name)) # ,
     for i,model in enumerate(symbolModels):
-        filehandle.write('%-40s\t%-20d\t%-20d\n' % (model.file,model.size,model.codeSize))
+        filehandle.write('%-40s\t%-20s\t%-20s\n' % (model.file,binarySize(model.size),binarySize(model.codeSize)))
 
 def writeComparation(newModelMap,oldModelMap,filehandle):
     newmap = newModelMap.copy()
@@ -144,35 +152,39 @@ def writeComparation(newModelMap,oldModelMap,filehandle):
     inclist.sort(key=symbolSort,reverse=True)
     dellist.sort(key=symbolSort,reverse=True)
     if len(newappears) > 0:
-        filehandle.write('新增部分：%-20d,代码：%-20d(%d项)\n' % (newsize,newcodesize,len(newappears)))
+        filehandle.write('新增部分：%-20s,代码：%-20s(%d项)\n' % (binarySize(newsize),binarySize(newcodesize),len(newappears)))
         for i,model in enumerate(newlist):
-            filehandle.write('%-40s\t%-20d\t%-20d\n' % (model.file,model.size,model.codeSize))
+            filehandle.write('%-40s\t%-20s\t%-20s\n' % (model.file,binarySize(model.size),binarySize(model.codeSize)))
     if len(increase) > 0:
-        filehandle.write('\n增加部分：%-20d,代码：%-20d(%d项)\n' % (incsize,inccodesize,len(increase)))
+        filehandle.write('\n增加部分：%-20s,代码：%-20s(%d项)\n' % (binarySize(incsize),binarySize(inccodesize),len(increase)))
         for i,model in enumerate(inclist):
-            filehandle.write('%-40s\t%-20d\t%-20d\n' % (model.file,model.size,model.codeSize))
+            filehandle.write('%-40s\t%-20s\t%-20s\n' % (model.file,binarySize(model.size),binarySize(model.codeSize)))
     if len(decrease) > 0:
         filehandle.write('\n减少部分：%-20d,代码：%-20d(%d项)\n' % (decsize,deccodesize,len(decrease)))
         for i,model in enumerate(declist):
-            filehandle.write('%-40s\t%-20d\t%-20d\n' % (model.file,model.size,model.codeSize))
+            filehandle.write('%-40s\t%-20s\t%-20s\n' % (model.file,binarySize(model.size),binarySize(model.codeSize)))
     if len(deleted) > 0:
         filehandle.write('\n删除部分：%-20d,代码：%-20d(%d项)\n\n' % (delsize,delcodesize,len(deleted)))
         for i,model in enumerate(dellist):
-            filehandle.write('%-40s\t%-20d\t%-20d\n' % (model.file,model.size,model.codeSize))
+            filehandle.write('%-40s\t%-20s\t%-20s\n' % (model.file,binarySize(model.size),binarySize(model.codeSize)))
 
-filelinkmap = open('/Users/fangyang/Downloads/YYMobile-LinkMap-normal-arm64.txt')
-oldmodelmap = getSymbolmap(filelinkmap.readlines())
-oldmodelmap = getGroupedSymbolmap(oldmodelmap)
-sortedOldSymbols = sortSymbols(oldmodelmap)
+def main(argv=None):
+    filelinkmap = open('/Users/fangyang/Downloads/YYMobile-LinkMap-normal-arm64.txt')
+    oldmodelmap = getSymbolmap(filelinkmap.readlines())
+    oldmodelmap = getGroupedSymbolmap(oldmodelmap)
+    sortedOldSymbols = sortSymbols(oldmodelmap)
+    
+    filelinkmap = open('/Users/fangyang/Downloads/YYMobile-LinkMap-normal-arm64_new.txt')
+    newmodelmap = getSymbolmap(filelinkmap.readlines())
+    newmodelmap = getGroupedSymbolmap(newmodelmap)
+    sortedNewSymbols = sortSymbols(newmodelmap)
+    
+    outputfile = open('/Users/fangyang/Downloads/pyLinkmap/result.txt','w')
+    writeComparation(newmodelmap,oldmodelmap,outputfile)
+    outputfile.write('\n新linkmap分布如下：\n')
+    writeSymbolsLayout(outputfile,sortedNewSymbols)
+    outputfile.write('\n旧linkmap分布如下：\n')
+    writeSymbolsLayout(outputfile,sortedOldSymbols)
 
-filelinkmap = open('/Users/fangyang/Downloads/YYMobile-LinkMap-normal-arm64_new.txt')
-newmodelmap = getSymbolmap(filelinkmap.readlines())
-newmodelmap = getGroupedSymbolmap(newmodelmap)
-sortedNewSymbols = sortSymbols(newmodelmap)
-
-outputfile = open('/Users/fangyang/Downloads/pyLinkmap/result.txt','w')
-writeComparation(newmodelmap,oldmodelmap,outputfile)
-outputfile.write('\n新linkmap分布如下：\n')
-writeSymbolsLayout(outputfile,sortedNewSymbols)
-outputfile.write('\n旧linkmap分布如下：\n')
-writeSymbolsLayout(outputfile,sortedOldSymbols)
+if __name__ == '__main__':
+    sys.exit(main())

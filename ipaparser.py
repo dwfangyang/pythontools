@@ -29,7 +29,7 @@ class FileCompareModel:
     name = ''
     sizeChange = 0
 
-class FileItemModel:       #文件项表示类
+class FileItemModel:       #文件抽象类
     type = 0
     size = 0
     path = ''
@@ -201,22 +201,22 @@ def compareIPAModel(newIPAPath,oldIPAPath):
     declist.sort(key=itemSort,reverse=True)
     inclist.sort(key=itemSort,reverse=True)
     dellist.sort(key=itemSort,reverse=True)
-    print '新增  %d项：%s' % (len(newlist),binarySize(newsize))
     if len(newlist) > 0:
+        print '新增  %d项：%s' % (len(newlist),binarySize(newsize))
         for i,item in enumerate(newlist):
-            print item.name,':',binarySize(item.sizeChange)
-    print '增加  %d项：%s' % (len(inclist),binarySize(incsize))
+            print '%-40s:%s' % (item.name,binarySize(item.sizeChange))
     if len(inclist) > 0:
+        print '增加  %d项：%s' % (len(inclist),binarySize(incsize))
         for i,item in enumerate(inclist):
-            print item.name,':',binarySize(item.sizeChange)
-    print '减少  %d项：%s' % (len(declist),binarySize(decsize))
+            print '%-40s:%s' % (item.name,binarySize(item.sizeChange))
     if len(declist) > 0:
+        print '减少  %d项：%s' % (len(declist),binarySize(decsize))
         for i,item in enumerate(declist):
-            print item.name,':',binarySize(item.sizeChange)
-    print '删除  %d项：%s' % (len(dellist),binarySize(delsize))
+            print '%-40s:%s' % (item.name,binarySize(item.sizeChange))
     if len(dellist) > 0:
+        print '删除  %d项：%s' % (len(dellist),binarySize(delsize))
         for i,item in enumerate(dellist):
-            print item.name,':',binarySize(item.sizeChange)
+            print '%-40s:%s' % (item.name,binarySize(item.sizeChange))
 
 def main(argv=None):
     if argv is None:

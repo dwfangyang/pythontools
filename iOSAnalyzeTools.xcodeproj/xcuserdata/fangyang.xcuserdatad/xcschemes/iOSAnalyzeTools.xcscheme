@@ -59,7 +59,7 @@
       </MacroExpansion>
       <CommandLineArguments>
          <CommandLineArgument
-            argument = "$(SRCROOT)/ipaparser.py"
+            argument = "$(SRCROOT)/linkmaper.py"
             isEnabled = "YES">
          </CommandLineArgument>
       </CommandLineArguments>
