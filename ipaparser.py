@@ -11,6 +11,7 @@ import zipfile
 import os
 import os.path
 from os.path import join, getsize
+import urllib
 
 #     type:    0       1       2       3       4       5       6       7
 # typename: 执行文件    文档    图片    媒体文件  bundle  文件夹   XIB     普通文件
@@ -97,9 +98,9 @@ class FileItemModel:       #文件抽象类
         return size
 
 def binarySize(size):
-    if size < 1024:
+    if abs(size) < 1024:
         return '%5.0f'%float(size) +'B'
-    elif size < 1024*1024:
+    elif abs(size) < 1024*1024:
         return '%5.1f'%(float(size)/1024) + 'KB'
     else:
         return '%5.1f'%(float(size)/(1024*1024)) + 'MB'
@@ -192,7 +193,6 @@ def compareIPAModel(newIPAPath,oldIPAPath):
     print '对比结果如下：'
     for i,item in enumerate(FILEITEMTYPES):
         print '%-10s\t增加:%s' % (item,binarySize(newIPA.itemSizeForType(i)-oldIPA.itemSizeForType(i)))
-    print '\n'
     newlist = newappears.values()
     inclist = increase.values()
     declist = decrease.values()
@@ -201,22 +201,14 @@ def compareIPAModel(newIPAPath,oldIPAPath):
     declist.sort(key=itemSort,reverse=True)
     inclist.sort(key=itemSort,reverse=True)
     dellist.sort(key=itemSort,reverse=True)
-    if len(newlist) > 0:
-        print '新增  %d项：%s' % (len(newlist),binarySize(newsize))
-        for i,item in enumerate(newlist):
-            print '%-40s:%s' % (item.name,binarySize(item.sizeChange))
-    if len(inclist) > 0:
-        print '增加  %d项：%s' % (len(inclist),binarySize(incsize))
-        for i,item in enumerate(inclist):
-            print '%-40s:%s' % (item.name,binarySize(item.sizeChange))
-    if len(declist) > 0:
-        print '减少  %d项：%s' % (len(declist),binarySize(decsize))
-        for i,item in enumerate(declist):
-            print '%-40s:%s' % (item.name,binarySize(item.sizeChange))
-    if len(dellist) > 0:
-        print '删除  %d项：%s' % (len(dellist),binarySize(delsize))
-        for i,item in enumerate(dellist):
-            print '%-40s:%s' % (item.name,binarySize(item.sizeChange))
+    result = [('新增',newlist,newsize),('增加',inclist,incsize),('减少',declist,decsize),('删除',dellist,delsize)]
+    for i,tup in enumerate(result):
+        if len(tup[1]) > 0:
+            print '\n%-20s %20d项:%s' % (tup[0],len(tup[1]),binarySize(tup[2]))
+            for i,item in enumerate(tup[1]):
+                if item.sizeChange > 1024:
+                    print '%-40s:%s' % (item.name,binarySize(item.sizeChange))
+
 
 def main(argv=None):
     if argv is None:
@@ -233,14 +225,19 @@ def main(argv=None):
                 #print ':',type,':',len(type)
                 FILESUFTYPEMAP[type] = i
 
-            newpath = '/Users/fangyang/Downloads/entmobile.ipa'
-            oldpath = '/Users/fangyang/Downloads/entmobile(1).ipa'
+        print 'start download ipa...'
+        urllib.urlretrieve("", "/Users/fangyang/Downloads/entmobile_new.ipa")
+        print 'done download ipa1...'
+        urllib.urlretrieve("", "/Users/fangyang/Downloads/entmobile_old.ipa")
+        print 'done download ipa2'
+        newpath = '/Users/fangyang/Downloads/entmobile_new.ipa'
+        oldpath = '/Users/fangyang/Downloads/entmobile_old.ipa'
 
         #ipaFile = getFileModelForIPA(filepath)    #ipa文件抽象
         #print 'exe size:',getsize(exepath)
         #print 'app size:',getItemSize(appdir)
         #print ipaFile.itemSize()
-        compareIPAModel(oldpath,newpath)
+        compareIPAModel(newpath,oldpath)
 
     except Usage, err:
         print >>sys.stderr, err.msg
