@@ -3,7 +3,9 @@
     ipaparser.py:
         serves as a tool for ipa file layout parsing
     usage:
-    
+        ipaparser.py -c comparedipaurl ipaurl
+        -c      用于对比的旧版本
+        -h      帮助文档
 '''
 import sys
 import getopt
@@ -12,6 +14,7 @@ import os
 import os.path
 from os.path import join, getsize
 import urllib
+import platform
 
 #     type:    0       1       2       3       4       5       6       7
 # typename: 执行文件    文档    图片    媒体文件  bundle  文件夹   XIB     普通文件
@@ -209,15 +212,33 @@ def compareIPAModel(newIPAPath,oldIPAPath):
                 if item.sizeChange > 1024:
                     print '%-40s:%s' % (item.name,binarySize(item.sizeChange))
 
-
 def main(argv=None):
     if argv is None:
         argv = sys.argv
     try:
         try:
-            opts, args = getopt.getopt(argv[1:], "h", ["help"])
+            opts, args = getopt.getopt(argv[1:], "hc:i:", ["help"])
         except getopt.error, msg:
             raise Usage(msg)
+
+        newurl = ''
+        oldurl = ''
+        for name,value in opts:
+            if name in ('-h','--help'):
+                raise Usage('''
+ipaparser.py:
+    serves as a tool for ipa file layout parsing
+usage:
+    ipaparser.py [-c comparedipaurl] [-i comparedlinkmapurl] ipaurl linkmapurl
+    
+    -c      用于对比的旧版本
+    -i      用于对比的旧版本linkmap
+    -h      帮助文档
+                    ''')
+            elif name in ('-c'):
+                oldurl = value
+
+        newurl = args[0]
 
         #prepare for global map
         for i,list in enumerate(FILEITEMSUF):
@@ -225,13 +246,16 @@ def main(argv=None):
                 #print ':',type,':',len(type)
                 FILESUFTYPEMAP[type] = i
 
+        newpath = '/Users/fangyang/entmobile_new.ipa'
+        oldpath = '/Users/fangyang/entmobile_old.ipa'
+        if platform.platform().find('Windows') > -1:
+            newpath = 'G:/ios/entmobile_new.ipa'
+            oldpath = 'G:/ios/entmobile_old.ipa'
         print 'start download ipa...'
-        urllib.urlretrieve("", "/Users/fangyang/Downloads/entmobile_new.ipa")
+        urllib.urlretrieve(newurl, newpath)
         print 'done download ipa1...'
-        urllib.urlretrieve("", "/Users/fangyang/Downloads/entmobile_old.ipa")
+        urllib.urlretrieve(oldurl, oldpath)
         print 'done download ipa2'
-        newpath = '/Users/fangyang/Downloads/entmobile_new.ipa'
-        oldpath = '/Users/fangyang/Downloads/entmobile_old.ipa'
 
         #ipaFile = getFileModelForIPA(filepath)    #ipa文件抽象
         #print 'exe size:',getsize(exepath)

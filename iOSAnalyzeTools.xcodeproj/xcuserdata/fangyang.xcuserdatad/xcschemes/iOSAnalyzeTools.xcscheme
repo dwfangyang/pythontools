@@ -59,7 +59,7 @@
       </MacroExpansion>
       <CommandLineArguments>
          <CommandLineArgument
-            argument = "$(SRCROOT)/ipaparser.py h"
+            argument = "$(SRCROOT)/ipaparser.py -c http://repo.yypm.com/dwbuild/mobile/ios/entmobile/entmobile-ios_7.2.10_Tech_feature/20171227-21777-r707286/entmobile.ipa http://repo.yypm.com/dwbuild/mobile/ios/entmobile/entmobile-ios_7.2.10_Tech_feature/20171220-21463-r698096/entmobile.ipa"
             isEnabled = "YES">
          </CommandLineArgument>
       </CommandLineArguments>
