@@ -1,6 +1,12 @@
 # coding=utf-8 ##以utf-8编码储存中文字符
 
+import urllib
 import sys
+import shutil
+import getopt
+import platform
+import time
+import os
 #reload(sys)
 #sys.setdefaultencoding('utf-8')
 dataOffset = 0  #data segment start address
@@ -45,7 +51,7 @@ def getSymbolmap(content):
             map = line[0:len(line)-1].split('\t')
             if map[2] == '__DATA' and dataOffset <= 0:
                 dataOffset = long(map[0],16)
-                print '__DATA offset:',dataOffset
+                #print '__DATA offset:',dataOffset
         elif partition == 3:
             map = line[0:len(line)-1].split('\t')
             if len(map) >= 3:
@@ -160,31 +166,88 @@ def writeComparation(newModelMap,oldModelMap,filehandle):
         for i,model in enumerate(inclist):
             filehandle.write('%-40s\t%-20s\t%-20s\n' % (model.file,binarySize(model.size),binarySize(model.codeSize)))
     if len(decrease) > 0:
-        filehandle.write('\n减少部分：%-20d,代码：%-20d(%d项)\n' % (decsize,deccodesize,len(decrease)))
+        filehandle.write('\n减少部分：%-20d,代码：%-20d(%d项)\n' % (binarySize(decsize),binarySize(deccodesize),len(decrease)))
         for i,model in enumerate(declist):
             filehandle.write('%-40s\t%-20s\t%-20s\n' % (model.file,binarySize(model.size),binarySize(model.codeSize)))
     if len(deleted) > 0:
-        filehandle.write('\n删除部分：%-20d,代码：%-20d(%d项)\n\n' % (delsize,delcodesize,len(deleted)))
+        filehandle.write('\n删除部分：%-20d,代码：%-20d(%d项)\n\n' % (binarySize(delsize),binarySize(delcodesize),len(deleted)))
         for i,model in enumerate(dellist):
             filehandle.write('%-40s\t%-20s\t%-20s\n' % (model.file,binarySize(model.size),binarySize(model.codeSize)))
 
 def main(argv=None):
-    filelinkmap = open('/Users/fangyang/Downloads/YYMobile-LinkMap-normal-arm64.txt')
-    oldmodelmap = getSymbolmap(filelinkmap.readlines())
-    oldmodelmap = getGroupedSymbolmap(oldmodelmap)
-    sortedOldSymbols = sortSymbols(oldmodelmap)
-    
-    filelinkmap = open('/Users/fangyang/Downloads/YYMobile-LinkMap-normal-arm64_new.txt')
-    newmodelmap = getSymbolmap(filelinkmap.readlines())
-    newmodelmap = getGroupedSymbolmap(newmodelmap)
-    sortedNewSymbols = sortSymbols(newmodelmap)
-    
-    outputfile = open('/Users/fangyang/Downloads/pyLinkmap/result.txt','w')
-    writeComparation(newmodelmap,oldmodelmap,outputfile)
-    outputfile.write('\n新linkmap分布如下：\n')
-    writeSymbolsLayout(outputfile,sortedNewSymbols)
-    outputfile.write('\n旧linkmap分布如下：\n')
-    writeSymbolsLayout(outputfile,sortedOldSymbols)
+    if argv is None:
+        argv = sys.argv
+    try:
+        try:
+            opts, args = getopt.getopt(argv[1:], "hc:", ["help"])
+        except getopt.error, msg:
+            raise Usage(msg)
+
+        newurl = ''
+        oldurl = ''
+
+        for name,value in opts:
+            if name in ('-h','--help'):
+                print '''
+linkmaper.py:
+serves as a tool for executable layout parsing with linkmapfile
+usage:
+linkmaper.py [-c comparedlinkmapurl] linkmapurl
+
+-c      用于对比的旧版本
+-h      帮助文档
+                    '''
+            elif name in ('-c'):
+                oldurl = value
+
+        globaldir = '/Library/WebServer/Documents/'
+        if platform.platform().find('Windows') > -1:
+            globaldir = 'G:/ios/'
+
+        outputfile = open(globaldir+'result.txt','w')   #outputfile
+
+        globaldir += str(time.time()) + '/'
+
+        if not os.path.exists(globaldir):   #make tmp dir
+            os.makedirs(globaldir)
+
+        newurl = args[0]
+
+        newpath = globaldir + 'linkmap.txt'
+        oldpath = globaldir + 'linkmap_compared.txt'
+
+        #download linkmap files
+        #print('start download:'+newurl)
+        urllib.urlretrieve(newurl, newpath)
+        #print('start download:'+oldurl)
+        urllib.urlretrieve(oldurl, oldpath)
+
+        filelinkmap = open(oldpath)
+        oldmodelmap = getSymbolmap(filelinkmap.readlines())
+        oldmodelmap = getGroupedSymbolmap(oldmodelmap)
+        sortedOldSymbols = sortSymbols(oldmodelmap)
+        
+        filelinkmap = open(newpath)
+        newmodelmap = getSymbolmap(filelinkmap.readlines())
+        newmodelmap = getGroupedSymbolmap(newmodelmap)
+        sortedNewSymbols = sortSymbols(newmodelmap)
+
+        writeComparation(newmodelmap,oldmodelmap,outputfile)
+        outputfile.write('\n新linkmap分布如下：\n')
+        writeSymbolsLayout(outputfile,sortedNewSymbols)
+        outputfile.write('\n旧linkmap分布如下：\n')
+        writeSymbolsLayout(outputfile,sortedOldSymbols)
+
+        #clean tmp files
+        shutil.rmtree(globaldir)
+    except Usage, err:
+        print >>sys.stderr, err.msg
+        print >>sys.stderr, "for help use --help"
+        return 2
+
+class Usage(Exception):
+    def __init__(self, msg):
+        self.msg = msg
 
 if __name__ == '__main__':
     sys.exit(main())

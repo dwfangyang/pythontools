@@ -15,6 +15,8 @@ import os.path
 from os.path import join, getsize
 import urllib
 import platform
+import time
+import shutil
 
 #     type:    0       1       2       3       4       5       6       7
 # typename: 执行文件    文档    图片    媒体文件  bundle  文件夹   XIB     普通文件
@@ -28,6 +30,14 @@ FILEITEMSUF =  [[],
                 ["nib","storyboardc"],
                 []];
 FILESUFTYPEMAP = {}
+output = ''
+
+class OutputSerializer:
+    outputfilehandler = ''
+    def __init__(self,outputfile):
+        self.outputfilehandler = open(outputfile,'w',0)
+    def write(self,content):
+        self.outputfilehandler.write(content)
 
 class FileCompareModel:
     name = ''
@@ -150,11 +160,12 @@ def itemSort(model):
     return model.sizeChange
 
 def compareIPAModel(newIPAPath,oldIPAPath):
-    print 'ipa文件增加：',binarySize(getsize(newIPAPath)-getsize(oldIPAPath))
+    global output
+    output.write('ipa文件增加：%s<br/>' % binarySize(getsize(newIPAPath)-getsize(oldIPAPath)))
     newIPA = getFileModelForIPA(newIPAPath)
     oldIPA = getFileModelForIPA(oldIPAPath)
-    print '执行文件增加：',binarySize(getsize(join(newIPA.appdir,newIPA.appname))-getsize(join(oldIPA.appdir,oldIPA.appname)))
-    print 'app增加：',binarySize(newIPA.itemSize()-oldIPA.itemSize()),'\n'
+    output.write('执行文件增加：%s<br/>' % binarySize(getsize(join(newIPA.appdir,newIPA.appname))-getsize(join(oldIPA.appdir,oldIPA.appname))))
+    output.write('app增加：%s\n<br/>' % binarySize(newIPA.itemSize()-oldIPA.itemSize()))
 
     newmap = newIPA.itemmap.copy()
     oldmap = oldIPA.itemmap.copy()
@@ -193,9 +204,9 @@ def compareIPAModel(newIPAPath,oldIPAPath):
         deleted[key] = compare
         delsize += compare.sizeChange
         
-    print '对比结果如下：'
+    output.write('对比结果如下：<br/>')
     for i,item in enumerate(FILEITEMTYPES):
-        print '%-10s\t增加:%s' % (item,binarySize(newIPA.itemSizeForType(i)-oldIPA.itemSizeForType(i)))
+        output.write('%-10s\t增加:%s<br/>' % (item,binarySize(newIPA.itemSizeForType(i)-oldIPA.itemSizeForType(i))))
     newlist = newappears.values()
     inclist = increase.values()
     declist = decrease.values()
@@ -207,25 +218,40 @@ def compareIPAModel(newIPAPath,oldIPAPath):
     result = [('新增',newlist,newsize),('增加',inclist,incsize),('减少',declist,decsize),('删除',dellist,delsize)]
     for i,tup in enumerate(result):
         if len(tup[1]) > 0:
-            print '\n%-20s %20d项:%s' % (tup[0],len(tup[1]),binarySize(tup[2]))
+            output.write('\n%-20s %20d项:%s<br/>' % (tup[0],len(tup[1]),binarySize(tup[2])))
             for i,item in enumerate(tup[1]):
                 if item.sizeChange > 1024:
-                    print '%-40s:%s' % (item.name,binarySize(item.sizeChange))
+                    output.write('%-40s:%s<br/>' % (item.name,binarySize(item.sizeChange)))
 
 def main(argv=None):
     if argv is None:
         argv = sys.argv
     try:
         try:
-            opts, args = getopt.getopt(argv[1:], "hc:i:", ["help"])
+            opts, args = getopt.getopt(argv[1:], "hc:i:o:", ["help"])
         except getopt.error, msg:
             raise Usage(msg)
 
         newurl = ''
         oldurl = ''
+
+        #输出初始化
+        global output
+	
+        globaldir = '/Library/WebServer/Documents/'
+        if platform.platform().find('Windows') > -1:
+            globaldir = 'G:/ios/'
+        globaldir += str(time.time()) + '/'
+	
+        if not os.path.exists(globaldir):   #make tmp dir
+            os.makedirs(globaldir)
+	
+        newpath = globaldir + 'entmobile_new.ipa'
+        oldpath = globaldir + 'entmobile_old.ipa'
+
         for name,value in opts:
             if name in ('-h','--help'):
-                raise Usage('''
+                print '''
 ipaparser.py:
     serves as a tool for ipa file layout parsing
 usage:
@@ -234,34 +260,30 @@ usage:
     -c      用于对比的旧版本
     -i      用于对比的旧版本linkmap
     -h      帮助文档
-                    ''')
+                    '''
             elif name in ('-c'):
                 oldurl = value
 
+        output = OutputSerializer(globaldir + 'ipacompare.txt')
         newurl = args[0]
-
         #prepare for global map
         for i,list in enumerate(FILEITEMSUF):
             for j,type in enumerate(list):
                 #print ':',type,':',len(type)
                 FILESUFTYPEMAP[type] = i
-
-        newpath = '/Users/fangyang/entmobile_new.ipa'
-        oldpath = '/Users/fangyang/entmobile_old.ipa'
-        if platform.platform().find('Windows') > -1:
-            newpath = 'G:/ios/entmobile_new.ipa'
-            oldpath = 'G:/ios/entmobile_old.ipa'
-        print 'start download ipa...'
+        output.write('start download ipa(%s)...<br/>' % newurl)
         urllib.urlretrieve(newurl, newpath)
-        print 'done download ipa1...'
+        output.write('done download ipa(%s)...<br/>' % newurl)
+        output.write('startdownload ipa(%s)...<br/>' % oldurl)
         urllib.urlretrieve(oldurl, oldpath)
-        print 'done download ipa2'
+        output.write('done download ipa(%s)<br/>' % oldurl)
 
         #ipaFile = getFileModelForIPA(filepath)    #ipa文件抽象
         #print 'exe size:',getsize(exepath)
         #print 'app size:',getItemSize(appdir)
         #print ipaFile.itemSize()
         compareIPAModel(newpath,oldpath)
+	    shutil.rmtree(globaldir)
 
     except Usage, err:
         print >>sys.stderr, err.msg

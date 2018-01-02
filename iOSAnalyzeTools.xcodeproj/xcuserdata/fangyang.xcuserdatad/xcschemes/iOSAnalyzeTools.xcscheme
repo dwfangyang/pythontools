@@ -59,7 +59,11 @@
       </MacroExpansion>
       <CommandLineArguments>
          <CommandLineArgument
-            argument = "$(SRCROOT)/ipaparser.py -c http://repo.yypm.com/dwbuild/mobile/ios/entmobile/entmobile-ios_7.2.10_Tech_feature/20171227-21777-r707286/entmobile.ipa http://repo.yypm.com/dwbuild/mobile/ios/entmobile/entmobile-ios_7.2.10_Tech_feature/20171220-21463-r698096/entmobile.ipa"
+            argument = "$(SRCROOT)/ipaparser.py -o /Users/fangyang/compare.txt -c http://repo.yypm.com/dwbuild/mobile/ios/entmobile/entmobile-ios_7.2.10_Tech_feature/20171227-21777-r707286/entmobile.ipa http://repo.yypm.com/dwbuild/mobile/ios/entmobile/entmobile-ios_7.2.10_Tech_feature/20171220-21463-r698096/entmobile.ipa"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "$(SRCROOT)/linkmaper.py -c http://repo.yypm.com/dwbuild/mobile/ios/entmobile/ENTMOBILE-IOS_7.2.2_REVIEW3/20171220-354-r702140/YYMobile-LinkMap-normal-arm64.txt http://repo.yypm.com/dwbuild/mobile/ios/entmobile/entmobile-ios_7.3_maint/20180102-21931-r709361/YYMobile-LinkMap-normal-arm64.txt"
             isEnabled = "YES">
          </CommandLineArgument>
       </CommandLineArguments>
