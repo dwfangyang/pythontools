@@ -38,6 +38,8 @@ class OutputSerializer:
         self.outputfilehandler = open(outputfile,'w',0)
     def write(self,content):
         self.outputfilehandler.write(content)
+    def closeOutput(self):
+        self.outputfilehandler.close()
 
 class FileCompareModel:
     name = ''
@@ -237,17 +239,19 @@ def main(argv=None):
 
         #输出初始化
         global output
+        outputfile = ''
 	
         globaldir = '/Library/WebServer/Documents/'
         if platform.platform().find('Windows') > -1:
-            globaldir = 'G:/ios/'
+	        globaldir = 'E:/wamp64/tmp/'
         globaldir += str(time.time()) + '/'
 	
         if not os.path.exists(globaldir):   #make tmp dir
-            os.makedirs(globaldir)
+	        os.makedirs(globaldir)
 	
         newpath = globaldir + 'entmobile_new.ipa'
         oldpath = globaldir + 'entmobile_old.ipa'
+        outputfile = globaldir + 'ipacompare.txt'
 
         for name,value in opts:
             if name in ('-h','--help'):
@@ -263,8 +267,8 @@ usage:
                     '''
             elif name in ('-c'):
                 oldurl = value
-
-        output = OutputSerializer(globaldir + 'ipacompare.txt')
+	    
+        output = OutputSerializer(outputfile)
         newurl = args[0]
         #prepare for global map
         for i,list in enumerate(FILEITEMSUF):
@@ -283,7 +287,8 @@ usage:
         #print 'app size:',getItemSize(appdir)
         #print ipaFile.itemSize()
         compareIPAModel(newpath,oldpath)
-	    shutil.rmtree(globaldir)
+        output.closeOutput()
+        shutil.rmtree(globaldir)
 
     except Usage, err:
         print >>sys.stderr, err.msg

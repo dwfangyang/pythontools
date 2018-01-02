@@ -166,11 +166,11 @@ def writeComparation(newModelMap,oldModelMap,filehandle):
         for i,model in enumerate(inclist):
             filehandle.write('%-40s\t%-20s\t%-20s\n' % (model.file,binarySize(model.size),binarySize(model.codeSize)))
     if len(decrease) > 0:
-        filehandle.write('\n减少部分：%-20d,代码：%-20d(%d项)\n' % (binarySize(decsize),binarySize(deccodesize),len(decrease)))
+        filehandle.write('\n减少部分：%-20s,代码：%-20s(%d项)\n' % (binarySize(decsize),binarySize(deccodesize),len(decrease)))
         for i,model in enumerate(declist):
             filehandle.write('%-40s\t%-20s\t%-20s\n' % (model.file,binarySize(model.size),binarySize(model.codeSize)))
     if len(deleted) > 0:
-        filehandle.write('\n删除部分：%-20d,代码：%-20d(%d项)\n\n' % (binarySize(delsize),binarySize(delcodesize),len(deleted)))
+        filehandle.write('\n删除部分：%-20s,代码：%-20s(%d项)\n\n' % (binarySize(delsize),binarySize(delcodesize),len(deleted)))
         for i,model in enumerate(dellist):
             filehandle.write('%-40s\t%-20s\t%-20s\n' % (model.file,binarySize(model.size),binarySize(model.codeSize)))
 
@@ -202,7 +202,7 @@ linkmaper.py [-c comparedlinkmapurl] linkmapurl
 
         globaldir = '/Library/WebServer/Documents/'
         if platform.platform().find('Windows') > -1:
-            globaldir = 'G:/ios/'
+            globaldir = 'E:/wamp64/tmp/'
 
         outputfile = open(globaldir+'result.txt','w')   #outputfile
 
@@ -217,20 +217,22 @@ linkmaper.py [-c comparedlinkmapurl] linkmapurl
         oldpath = globaldir + 'linkmap_compared.txt'
 
         #download linkmap files
-        #print('start download:'+newurl)
+        #outputfile.write('start download:'+newurl)
         urllib.urlretrieve(newurl, newpath)
-        #print('start download:'+oldurl)
+        #outputfile.write('start download:'+oldurl)
         urllib.urlretrieve(oldurl, oldpath)
 
-        filelinkmap = open(oldpath)
-        oldmodelmap = getSymbolmap(filelinkmap.readlines())
+        oldfilelinkmap = open(oldpath)
+        oldmodelmap = getSymbolmap(oldfilelinkmap.readlines())
         oldmodelmap = getGroupedSymbolmap(oldmodelmap)
         sortedOldSymbols = sortSymbols(oldmodelmap)
+        oldfilelinkmap.close()
         
         filelinkmap = open(newpath)
         newmodelmap = getSymbolmap(filelinkmap.readlines())
         newmodelmap = getGroupedSymbolmap(newmodelmap)
         sortedNewSymbols = sortSymbols(newmodelmap)
+        filelinkmap.close()
 
         writeComparation(newmodelmap,oldmodelmap,outputfile)
         outputfile.write('\n新linkmap分布如下：\n')
@@ -239,7 +241,10 @@ linkmaper.py [-c comparedlinkmapurl] linkmapurl
         writeSymbolsLayout(outputfile,sortedOldSymbols)
 
         #clean tmp files
+        print 'about to delete: '+globaldir
         shutil.rmtree(globaldir)
+        outputfile.close()
+	
     except Usage, err:
         print >>sys.stderr, err.msg
         print >>sys.stderr, "for help use --help"
