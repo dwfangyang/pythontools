@@ -17,6 +17,7 @@ import urllib
 import platform
 import time
 import shutil
+from script.sendemail.send_email import Email
 
 #     type:    0       1       2       3       4       5       6       7
 # typename: 执行文件    文档    图片    媒体文件  bundle  文件夹   XIB     普通文件
@@ -163,11 +164,11 @@ def itemSort(model):
 
 def compareIPAModel(newIPAPath,oldIPAPath):
     global output
-    output.write('ipa文件增加：%s<br/>' % binarySize(getsize(newIPAPath)-getsize(oldIPAPath)))
+    output.write('ipa文件增加：%s\n' % binarySize(getsize(newIPAPath)-getsize(oldIPAPath)))
     newIPA = getFileModelForIPA(newIPAPath)
     oldIPA = getFileModelForIPA(oldIPAPath)
-    output.write('执行文件增加：%s<br/>' % binarySize(getsize(join(newIPA.appdir,newIPA.appname))-getsize(join(oldIPA.appdir,oldIPA.appname))))
-    output.write('app增加：%s\n<br/>' % binarySize(newIPA.itemSize()-oldIPA.itemSize()))
+    output.write('执行文件增加：%s\n' % binarySize(getsize(join(newIPA.appdir,newIPA.appname))-getsize(join(oldIPA.appdir,oldIPA.appname))))
+    output.write('app增加：%s\n\n' % binarySize(newIPA.itemSize()-oldIPA.itemSize()))
 
     newmap = newIPA.itemmap.copy()
     oldmap = oldIPA.itemmap.copy()
@@ -206,9 +207,9 @@ def compareIPAModel(newIPAPath,oldIPAPath):
         deleted[key] = compare
         delsize += compare.sizeChange
         
-    output.write('对比结果如下：<br/>')
+    output.write('对比结果如下：\n')
     for i,item in enumerate(FILEITEMTYPES):
-        output.write('%-10s\t增加:%s<br/>' % (item,binarySize(newIPA.itemSizeForType(i)-oldIPA.itemSizeForType(i))))
+        output.write('%-10s\t增加:%s\n' % (item,binarySize(newIPA.itemSizeForType(i)-oldIPA.itemSizeForType(i))))
     newlist = newappears.values()
     inclist = increase.values()
     declist = decrease.values()
@@ -220,10 +221,10 @@ def compareIPAModel(newIPAPath,oldIPAPath):
     result = [('新增',newlist,newsize),('增加',inclist,incsize),('减少',declist,decsize),('删除',dellist,delsize)]
     for i,tup in enumerate(result):
         if len(tup[1]) > 0:
-            output.write('\n%-20s %20d项:%s<br/>' % (tup[0],len(tup[1]),binarySize(tup[2])))
+            output.write('\n%-20s %20d项:%s\n' % (tup[0],len(tup[1]),binarySize(tup[2])))
             for i,item in enumerate(tup[1]):
                 if item.sizeChange > 1024:
-                    output.write('%-40s:%s<br/>' % (item.name,binarySize(item.sizeChange)))
+                    output.write('%-40s:%s\n' % (item.name,binarySize(item.sizeChange)))
 
 def main(argv=None):
     if argv is None:
@@ -275,12 +276,12 @@ usage:
             for j,type in enumerate(list):
                 #print ':',type,':',len(type)
                 FILESUFTYPEMAP[type] = i
-        output.write('start download ipa(%s)...<br/>' % newurl)
+        output.write('start download ipa(%s)...\n' % newurl)
         urllib.urlretrieve(newurl, newpath)
-        output.write('done download ipa(%s)...<br/>' % newurl)
-        output.write('startdownload ipa(%s)...<br/>' % oldurl)
+        output.write('done download ipa(%s)...\n' % newurl)
+        output.write('startdownload ipa(%s)...\n' % oldurl)
         urllib.urlretrieve(oldurl, oldpath)
-        output.write('done download ipa(%s)<br/>' % oldurl)
+        output.write('done download ipa(%s)\n' % oldurl)
 
         #ipaFile = getFileModelForIPA(filepath)    #ipa文件抽象
         #print 'exe size:',getsize(exepath)
@@ -288,6 +289,10 @@ usage:
         #print ipaFile.itemSize()
         compareIPAModel(newpath,oldpath)
         output.closeOutput()
+		
+        emailhandler = Email('yy-pgone@yy.com','Guozhi1221')
+        emailhandler.sendmail('ipa compare result',['fangyang@yy.com'],['fangyang@yy.com'],[outputfile],'ipa test')
+		
         shutil.rmtree(globaldir)
 
     except Usage, err:

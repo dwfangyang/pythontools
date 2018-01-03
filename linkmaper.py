@@ -7,6 +7,8 @@ import getopt
 import platform
 import time
 import os
+from script.sendemail.send_email import Email
+
 #reload(sys)
 #sys.setdefaultencoding('utf-8')
 dataOffset = 0  #data segment start address
@@ -204,12 +206,12 @@ linkmaper.py [-c comparedlinkmapurl] linkmapurl
         if platform.platform().find('Windows') > -1:
             globaldir = 'E:/wamp64/tmp/'
 
-        outputfile = open(globaldir+'result.txt','w')   #outputfile
-
         globaldir += str(time.time()) + '/'
 
         if not os.path.exists(globaldir):   #make tmp dir
             os.makedirs(globaldir)
+
+        outputfile = open(globaldir+'result.txt','w')   #outputfile
 
         newurl = args[0]
 
@@ -242,8 +244,12 @@ linkmaper.py [-c comparedlinkmapurl] linkmapurl
 
         #clean tmp files
         print 'about to delete: '+globaldir
-        shutil.rmtree(globaldir)
         outputfile.close()
+		
+        emailhandler = Email('yy-pgone@yy.com','Guozhi1221')
+        emailhandler.sendmail('linkmap compare result',['fangyang@yy.com'],['fangyang@yy.com'],[globaldir+'result.txt'],'linkmap test')
+		
+        shutil.rmtree(globaldir)
 	
     except Usage, err:
         print >>sys.stderr, err.msg
