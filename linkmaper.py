@@ -12,6 +12,28 @@ from script.sendemail.send_email import Email
 #reload(sys)
 #sys.setdefaultencoding('utf-8')
 dataOffset = 0  #data segment start address
+sizelimit = 1024
+outputSerializer = ''
+
+class OutputSerializer:
+    outputfilehandler = ''
+    emailFileHandler = ''
+    def __init__(self,outputfile,emailfile):
+        self.outputfilehandler = open(outputfile,'w',0)
+        self.emailFileHandler = open(emailfile,'w')
+        self.emailFileHandler.write('<table>')
+    def write(self,content):
+        self.outputfilehandler.write(content+'\n')
+        parts = content.split(' ')
+        line = '<tr>'
+        for i,item in enumerate(parts):
+            line += '<td>'+parts+'</td>'
+        line += '</tr>'
+        self.emailFileHandler.write(line)
+    def closeOutput(self):
+        self.outputfilehandler.close()
+        self.emailFileHandler.write('</table>')
+        self.emailFileHandler.close();
 
 class SymbolModel:
     file = ''
@@ -105,13 +127,17 @@ def sortSymbols(symbolmodels):
     values.sort(key=symbolSort,reverse=True)
     return values
 
-def writeSymbolsLayout(filehandle,symbolModels):
-    name = ('目标文件名','总数据大小','代码段大小')
-    filehandle.write('%-40s\t%-30s\t%-20s\n' % name )#('%-38s\t%-20s\t%-20s' % (name,name,name)) # ,
+def writeSymbolsLayout(symbolModels):
+    global sizelimit
+    global outputSerializer
+    name = ('目标文件名','总数据大小','代码段大小')
+    outputSerializer.write('%-40s\t%-30s\t%-20s' % name )
     for i,model in enumerate(symbolModels):
-        filehandle.write('%-40s\t%-20s\t%-20s\n' % (model.file,binarySize(model.size),binarySize(model.codeSize)))
+        if model.size > sizelimit:
+            outputSerializer.write('%-40s\t%-20s\t%-20s' % (model.file,binarySize(model.size),binarySize(model.codeSize)))
 
-def writeComparation(newModelMap,oldModelMap,filehandle):
+def writeComparation(newModelMap,oldModelMap):
+    global outputSerializer
     newmap = newModelMap.copy()
     oldmap = oldModelMap.copy()
     newappears = {}
@@ -150,7 +176,7 @@ def writeComparation(newModelMap,oldModelMap,filehandle):
         delsize += oldmap[key].size
         delcodesize += oldmap[key].codeSize
 
-    filehandle.write('对比结果如下：\n')
+    outputSerializer.write('对比结果如下：')
     newlist = newappears.values()
     inclist = increase.values()
     declist = decrease.values()
@@ -159,97 +185,116 @@ def writeComparation(newModelMap,oldModelMap,filehandle):
     declist.sort(key=symbolSort,reverse=True)
     inclist.sort(key=symbolSort,reverse=True)
     dellist.sort(key=symbolSort,reverse=True)
-    if len(newappears) > 0:
-        filehandle.write('新增部分：%-20s,代码：%-20s(%d项)\n' % (binarySize(newsize),binarySize(newcodesize),len(newappears)))
-        for i,model in enumerate(newlist):
-            filehandle.write('%-40s\t%-20s\t%-20s\n' % (model.file,binarySize(model.size),binarySize(model.codeSize)))
-    if len(increase) > 0:
-        filehandle.write('\n增加部分：%-20s,代码：%-20s(%d项)\n' % (binarySize(incsize),binarySize(inccodesize),len(increase)))
-        for i,model in enumerate(inclist):
-            filehandle.write('%-40s\t%-20s\t%-20s\n' % (model.file,binarySize(model.size),binarySize(model.codeSize)))
-    if len(decrease) > 0:
-        filehandle.write('\n减少部分：%-20s,代码：%-20s(%d项)\n' % (binarySize(decsize),binarySize(deccodesize),len(decrease)))
-        for i,model in enumerate(declist):
-            filehandle.write('%-40s\t%-20s\t%-20s\n' % (model.file,binarySize(model.size),binarySize(model.codeSize)))
-    if len(deleted) > 0:
-        filehandle.write('\n删除部分：%-20s,代码：%-20s(%d项)\n\n' % (binarySize(delsize),binarySize(delcodesize),len(deleted)))
-        for i,model in enumerate(dellist):
-            filehandle.write('%-40s\t%-20s\t%-20s\n' % (model.file,binarySize(model.size),binarySize(model.codeSize)))
+    result = [('新增',newsize,newcodesize,newappears,newlist),('增加',incsize,inccodesize,increase,inclist),('减少',decsize,deccodesize,decrease,declist),('删除',delsize,delcodesize,deleted,dellist)]
+    global sizelimit
+    for i,tup in enumerate(result):
+        if len(tup[3]) > 0:
+            outputSerializer.write('%s部分：%-20s,代码：%-20s(%d项)' % (tup[0],binarySize(tup[1]),binarySize(tup[2]),len(tup[3])))
+            for i,model in enumerate(tup[4]):
+                if model.size > sizelimit:
+                    outputSerializer.write('%-40s\t%-20s\t%-20s' % (model.file,binarySize(model.size),binarySize(model.codeSize)))
 
-def main(argv=None):
-    if argv is None:
-        argv = sys.argv
-    try:
-        try:
-            opts, args = getopt.getopt(argv[1:], "hc:", ["help"])
-        except getopt.error, msg:
-            raise Usage(msg)
+def getLinkmapComparation(newlinkmapurl,oldlinkmapurl,writeOriginal):
+    return getLinkmapComparationWithSizelimit(newlinkmapurl,oldlinkmapurl,writeOriginal,sizelimit)
 
-        newurl = ''
-        oldurl = ''
+def getLinkmapComparationWithSizelimit(newlinkmapurl,oldlinkmapurl,writeOriginal,itemsizelimit):
+    global sizelimit
+    sizelimit = itemsizelimit
+    global outputSerializer
+    
+    globaldir = '/Library/WebServer/Documents/'
+    if platform.platform().find('Windows') > -1:
+        globaldir = 'E:/wamp64/tmp/'
 
-        for name,value in opts:
-            if name in ('-h','--help'):
-                print '''
-linkmaper.py:
-serves as a tool for executable layout parsing with linkmapfile
-usage:
-linkmaper.py [-c comparedlinkmapurl] linkmapurl
+    globaldir += str(time.time()) + '/'
 
--c      用于对比的旧版本
--h      帮助文档
-                    '''
-            elif name in ('-c'):
-                oldurl = value
+    if not os.path.exists(globaldir):   #make tmp dir
+        os.makedirs(globaldir)
 
-        globaldir = '/Library/WebServer/Documents/'
-        if platform.platform().find('Windows') > -1:
-            globaldir = 'E:/wamp64/tmp/'
+    outputSerializer = OutputSerializer(globaldir+'result.txt',globaldir+'emailresult.txt')
 
-        globaldir += str(time.time()) + '/'
+    newurl = newlinkmapurl
+    oldurl = oldlinkmapurl
+    newpath = globaldir + 'linkmap.txt'
+    oldpath = globaldir + 'linkmap_compared.txt'
 
-        if not os.path.exists(globaldir):   #make tmp dir
-            os.makedirs(globaldir)
-
-        outputfile = open(globaldir+'result.txt','w')   #outputfile
-
-        newurl = args[0]
-
-        newpath = globaldir + 'linkmap.txt'
-        oldpath = globaldir + 'linkmap_compared.txt'
-
-        #download linkmap files
-        #outputfile.write('start download:'+newurl)
-        urllib.urlretrieve(newurl, newpath)
-        #outputfile.write('start download:'+oldurl)
+    urllib.urlretrieve(newurl, newpath)
+    
+    filelinkmap = open(newpath)
+    newmodelmap = getSymbolmap(filelinkmap.readlines())
+    newmodelmap = getGroupedSymbolmap(newmodelmap)
+    sortedNewSymbols = sortSymbols(newmodelmap)
+    filelinkmap.close()
+    
+    if len(oldurl) > 0:
         urllib.urlretrieve(oldurl, oldpath)
-
+        
         oldfilelinkmap = open(oldpath)
         oldmodelmap = getSymbolmap(oldfilelinkmap.readlines())
         oldmodelmap = getGroupedSymbolmap(oldmodelmap)
         sortedOldSymbols = sortSymbols(oldmodelmap)
         oldfilelinkmap.close()
         
-        filelinkmap = open(newpath)
-        newmodelmap = getSymbolmap(filelinkmap.readlines())
-        newmodelmap = getGroupedSymbolmap(newmodelmap)
-        sortedNewSymbols = sortSymbols(newmodelmap)
-        filelinkmap.close()
+        writeComparation(newmodelmap,oldmodelmap)
+        if writeOriginal:
+            outputSerializer.write('\n新linkmap分布如下：\n')
+            writeSymbolsLayout(sortedNewSymbols)
+            outputSerializer.write('\n旧linkmap分布如下：\n')
+            writeSymbolsLayout(sortedOldSymbols)
+    else:
+        writeSymbolsLayout(sortedNewSymbols)
+    outputSerializer.closeOutput()
+    return [globaldir,'result.txt','emailresult.txt']
 
-        writeComparation(newmodelmap,oldmodelmap,outputfile)
-        outputfile.write('\n新linkmap分布如下：\n')
-        writeSymbolsLayout(outputfile,sortedNewSymbols)
-        outputfile.write('\n旧linkmap分布如下：\n')
-        writeSymbolsLayout(outputfile,sortedOldSymbols)
+def main(argv=None):
+    if argv is None:
+        argv = sys.argv
+    try:
+        try:
+            opts, args = getopt.getopt(argv[1:], "hc:e:l:", ["help"])
+        except getopt.error, msg:
+            raise Usage(msg)
 
-        #clean tmp files
-        print 'about to delete: '+globaldir
-        outputfile.close()
+        newurl = ''
+        oldurl = ''
+        emailaddr = []
+        usagemsg ='''
+linkmaper.py:
+serves as a tool for executable layout parsing with linkmapfile
+usage:
+linkmaper.py [-c comparedlinkmapurl] [-e emailaddr] linkmapurl
+
+-c      用于对比的旧版本
+-h      帮助文档
+-e      结果接收邮箱地址，以分号分隔
+-l      指定输出的项最小字节数
+    '''
+        global sizelimit
+        for name,value in opts:
+            if name in ('-h','--help'):
+                raise Usage(usagemsg)
+            elif name in ('-c'):
+                oldurl = value
+            elif name in ('-e'):
+                emailaddr = value.split(';')
+            elif name in ('-l'):
+                sizelimit = int(value)
+        if len(args) <= 0:
+            raise Usage(usagemsg)
+
+        newurl = args[0]
+
+        tuple = getLinkmapComparation(newurl,oldurl,True)
+        if len(emailaddr) > 0:
+            emailhandler = Email('yy-pgone@yy.com','Guozhi1221')
+            comparationfile = open(tuple[0]+tuple[2])
+            emailcontent = ''
+            for line in comparationfile:
+                emailcontent += line
+            comparationfile.close()
+            emailhandler.sendmail('linkmap compare result',emailaddr,[],[tuple[0]+tuple[1]],emailcontent)
 		
-        emailhandler = Email('yy-pgone@yy.com','Guozhi1221')
-        emailhandler.sendmail('linkmap compare result',['fangyang@yy.com'],['fangyang@yy.com'],[globaldir+'result.txt'],'linkmap test')
-		
-        shutil.rmtree(globaldir)
+        shutil.rmtree(tuple[0])
 	
     except Usage, err:
         print >>sys.stderr, err.msg
