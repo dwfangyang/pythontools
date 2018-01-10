@@ -17,7 +17,8 @@ import urllib
 import platform
 import time
 import shutil
-from script.sendemail.send_email import Email
+import urlparse
+#from script.sendemail.send_email import Email
 from linkmaper import getLinkmapComparation
 
 #     type:    0       1       2       3       4       5       6       7
@@ -33,15 +34,21 @@ FILEITEMSUF =  [[],
                 []];
 FILESUFTYPEMAP = {}
 output = ''
+sizelimit = 1024
 
 class OutputSerializer:
     outputfilehandler = ''
-    def __init__(self,outputfile):
+    emailFileHandler = ''
+    def __init__(self,outputfile,emailfile):
         self.outputfilehandler = open(outputfile,'w',0)
+        self.emailFileHandler = open(emailfile,'w')
     def write(self,content):
-        self.outputfilehandler.write(content)
+        self.outputfilehandler.write(content+'\n')
+    def writeHtml(self,content):
+        self.emailFileHandler.write(content)
     def closeOutput(self):
         self.outputfilehandler.close()
+        self.emailFileHandler.close();
 
 class FileCompareModel:
     name = ''
@@ -70,7 +77,7 @@ class FileItemModel:       #文件抽象类
         self.parseSubitems()
     
     def parseSubitems(self):
-        if self.recursive == True and not os.path.isfile(self.path):
+        if self.recursive == True and os.path.isdir(self.path):
             for item in os.listdir(self.path):
                 fileitem = FileItemModel(join(self.path,item),False,self.appdir,self.appname)
                 self.itemmap[fileitem.name] = fileitem
@@ -131,6 +138,7 @@ class FileItemModel:       #文件抽象类
         decrease = {}
         deleted = {}
         newsize = incsize = decsize = delsize = 0
+        
         for key in newmap.keys():
             if not oldmap.has_key(key):
                 compare = FileCompareModel()
@@ -168,7 +176,16 @@ class FileItemModel:       #文件抽象类
         declist.sort(key=itemSort,reverse=True)
         inclist.sort(key=itemSort,reverse=True)
         dellist.sort(key=itemSort,reverse=True)
-        return [('新增',newlist,newsize),('增加',inclist,incsize),('减少',declist,decsize),('删除',dellist,delsize)]
+        result = []
+        if newsize:
+            result.append(('新增',newlist,newsize))
+        if incsize:
+            result.append(('增加',inclist,incsize))
+        if decsize:
+            result.append(('减少',declist,decsize))
+        if delsize:
+            result.append(('删除',dellist,delsize))
+        return result
 
 def binarySize(size):
     str = ''
@@ -178,7 +195,13 @@ def binarySize(size):
         str = '%5.1f'%(float(abs(size))/1024) + 'KB'
     else:
         str = '%5.1f'%(float(abs(size))/(1024*1024)) + 'MB'
-    return ('增加' if abs(size) == size else '减少',str)
+    change = '增加'
+    if abs(size) > size:
+        change = '减少'
+    elif size == 0:
+        str = ''
+        change = '-'
+    return (change,str)
 
 def getItemSize(path):      #获取文件或文件夹大小
     if not os.path.isfile(path):
@@ -221,33 +244,82 @@ def getFileModelForIPA(ipapath):
 def itemSort(model):
     return model.sizeChange
 
+#@params
+#   @recursive indicate depth of invocation,namely True for depth 1, False for depth 2, and comparation's max depth is 2
 def writeComparation(resultTuple,newFileModel,oldFileModel,recursive,delimiter):
     global output
+    global sizelimit
     for i,tup in enumerate(resultTuple):
-        if len(tup[1]) > 0:
-            output.write('\n%s%-20s %20d项:%s\n' % (delimiter,tup[0],len(tup[1]),binarySize(tup[2])[1]))
-            for i,item in enumerate(tup[1]):
-                if item.sizeChange > 1024:
-                    output.write('%s%-40s:%s\n' % (delimiter,item.name,binarySize(item.sizeChange)[1]))
-                    if recursive and newFileModel.itemmap.has_key(item.name) and oldFileModel.itemmap.has_key(item.name):
-                        newOrigItem = newFileModel.itemmap[item.name]
-                        oldOrigItem = oldFileModel.itemmap[item.name]
-                        writeComparation(newOrigItem.getComparationWith(oldOrigItem),newOrigItem,oldOrigItem,False,'\t')
+        if recursive:
+            output.writeHtml('<h5>%s %20d项: %s</h5>' % (tup[0],len(tup[1]),binarySize(tup[2])[1]))
+            output.writeHtml('<table border="1">')
+        else:
+            output.writeHtml('%s %20d项: %s' % (tup[0],len(tup[1]),binarySize(tup[2])[1]))
+            output.writeHtml('<table width="100%">')
+        output.write('\n%s%-20s %20d项: %s' % (delimiter,tup[0],len(tup[1]),binarySize(tup[2])[1]))
+        for i,item in enumerate(tup[1]):
+            if item.sizeChange > sizelimit:
+                hasRecursiveComparation = (recursive and newFileModel.itemmap.has_key(item.name) and oldFileModel.itemmap.has_key(item.name))
+                if hasRecursiveComparation:
+                    compareitem = newFileModel.itemmap[item.name]
+                    if compareitem.type != 4 and compareitem.type != 5:
+                        hasRecursiveComparation = False
+                if hasRecursiveComparation:
+                    output.writeHtml('<tr><td rowspan="2">%s</td><td align="right">%s</td></tr>' % (item.name,binarySize(item.sizeChange)[1]))
+                else:
+                    output.writeHtml('<tr><td>%s</td><td align="right">%s</td></tr>' % (item.name,binarySize(item.sizeChange)[1]))
+                output.write('%s %-40s: %s' % (delimiter,item.name,binarySize(item.sizeChange)[1]))
+                if hasRecursiveComparation: #increase or decrease item
+                    output.writeHtml('<tr><td>')
+                    newOrigItem = newFileModel.itemmap[item.name]
+                    oldOrigItem = oldFileModel.itemmap[item.name]
+                    writeComparation(newOrigItem.getComparationWith(oldOrigItem),newOrigItem,oldOrigItem,False,'\t')
+                    output.writeHtml('</td></tr>')
+        output.writeHtml('</table>')
+
+def writeHTMLSummary(summary):
+    global output
+    output.writeHtml('<table><tr><td valign="top">')
+    output.writeHtml('<h3 style="color:red">安装包总变化</h3>')
+    output.writeHtml('<table border="1">')
+    output.writeHtml('<tr><th></th><th>新包</th><th>旧包</th><th>变化</th></tr>')
+    for i,item in enumerate(summary):
+        change = binarySize(item[1]-item[2])
+        output.writeHtml('<tr><td style="color:red">%s</td><td>%s</td><td>%s</td><td>%s</td></tr>' %(item[0],binarySize(item[1])[1],binarySize(item[2])[1],change[0]+change[1]))
+    output.writeHtml('</table>')
+    output.writeHtml('</td>')
+
+def writeHTMLSubSummary(subsummary):
+    global output
+    output.writeHtml('<td valign="top">')
+    output.writeHtml('<h3 style="color:red">各类型文件变化</h3>')
+    output.writeHtml('<table border="1">')
+    output.writeHtml('<tr><th>文件类型</th><th>新包</th><th>旧包</th><th>变化</th></tr>')
+    for i,item in enumerate(subsummary):
+        change = binarySize(item[1]-item[2])
+        output.writeHtml('<tr><td style="color:red">%s</td><td>%s</td><td>%s</td><td>%s</td></tr>' % (item[0],binarySize(item[1])[1],binarySize(item[2])[1],change[0]+change[1]))
+    output.writeHtml('</table>')
+    output.writeHtml('</td></tr></table>')
+
+def isLocalUrl(url):
+    if len(urlparse.urlsplit(url.lstrip())[0]) > 0:
+        return False
+    return True
 
 def compareIPAModel(newIPA,oldIPA):
     global output
 
     result = newIPA.getComparationWith(oldIPA)
 
+    subsummary = []
     for i,item in enumerate(FILEITEMTYPES):
-        tuple = binarySize(newIPA.itemSizeForType(i)-oldIPA.itemSizeForType(i))
-        output.write('%-10s\t%s:%s\n' % (item,tuple[0],tuple[1]))
-#    for i,tup in enumerate(result):
-#        if len(tup[1]) > 0:
-#            output.write('\n%-20s %20d项:%s\n' % (tup[0],len(tup[1]),binarySize(tup[2])))
-#            for i,item in enumerate(tup[1]):
-#                if item.sizeChange > 1024:
-#                    output.write('%-40s:%s\n' % (item.name,binarySize(item.sizeChange)))
+        itemsummary = (item,newIPA.itemSizeForType(i),oldIPA.itemSizeForType(i))
+        subsummary.append(itemsummary)
+        tuple = binarySize(itemsummary[1]-itemsummary[2])
+        output.write('%-10s\t%s:%s' % (item,tuple[0],tuple[1]))
+
+    writeHTMLSubSummary(subsummary)
+    output.writeHtml('<h3 style="color:red">文件增减明细</h3>')
     writeComparation(result,newIPA,oldIPA,True,'')
 
 def main(argv=None):
@@ -304,7 +376,7 @@ usage:
         if len(args) <= 0:
             raise Usage(usagemsg)
 
-        output = OutputSerializer(outputfile)
+        output = OutputSerializer(outputfile,globaldir+'compareresult.html')
         newurl = args[0]
         if len(args) > 1:
             newlinkmapurl = args[1]
@@ -313,43 +385,60 @@ usage:
             for j,type in enumerate(list):
                 #print ':',type,':',len(type)
                 FILESUFTYPEMAP[type] = i
-#output.write('start download ipa(%s)...\n' % newurl)
-        urllib.urlretrieve(newurl, newpath)
-#output.write('done download ipa(%s)...\n' % newurl)
-#output.write('startdownload ipa(%s)...\n' % oldurl)
-        urllib.urlretrieve(oldurl, oldpath)
-#output.write('done download ipa(%s)\n' % oldurl)
 
-        #ipaFile = getFileModelForIPA(filepath)    #ipa文件抽象
-        #print 'exe size:',getsize(exepath)
-        #print 'app size:',getItemSize(appdir)
-        #print ipaFile.itemSize()
-        output.write('新ipa(%s) 相比于 旧ipa(%s) 大小变化如下:\n' % (newurl,oldurl))
-        tuple = binarySize(getsize(newpath)-getsize(oldpath))
-        output.write('ipa文件%s：%s\n' % (tuple[0],tuple[1]))
+        #if len(urlparse.urlsplit(newurl.lstrip())[0])
+        if not isLocalUrl(newurl):
+            # newurl is remote resource
+            urllib.urlretrieve(newurl, newpath)
+        else:
+            shutil.copyfile(newurl,newpath)
+            if not os.path.isabs(newurl):
+                newurl = os.path.abspath(newurl)
+        if not isLocalUrl(oldurl):
+            #oldurl is remote resource
+            urllib.urlretrieve(oldurl, oldpath)
+        else:
+            shutil.copyfile(oldurl,oldpath)
+            if not os.path.isabs(oldurl):
+                oldurl = os.path.abspath(oldurl)
+
+        output.write('新ipa(%s) 相比于 旧ipa(%s) 大小变化如下' % (newurl,oldurl))
+        output.writeHtml('<h3 style="color:red">新ipa(%s) 相比于 旧ipa(%s) 大小变化如下</h3>' % (newurl,oldurl))
         newIPA = getFileModelForIPA(newpath)
         oldIPA = getFileModelForIPA(oldpath)
-        tuple = binarySize(getsize(join(newIPA.appdir,newIPA.appname))-getsize(join(oldIPA.appdir,oldIPA.appname)))
-        output.write('执行文件%s：%s\n' % (tuple[0],tuple[1]))
-        tuple = binarySize(newIPA.itemSize()-oldIPA.itemSize())
-        output.write('app%s：%s\n\n' % (tuple[0],tuple[1]))
-        output.write('对比结果如下：\n')
+        summary = [('ipa文件',getsize(newpath),getsize(oldpath)),('执行文件',getsize(join(newIPA.appdir,newIPA.appname)),getsize(join(oldIPA.appdir,oldIPA.appname))),('app',newIPA.itemSize(),oldIPA.itemSize())]
+        for i,item in enumerate(summary):
+            tuple = binarySize(item[1]-item[2])
+            output.write('%s: %s %s' % (item[0],tuple[0],tuple[1]))
+        writeHTMLSummary(summary)
+
+        output.write('\n\n对比结果如下：')
+
         compareIPAModel(newIPA,oldIPA)
         if len(newlinkmapurl):
             tuple = getLinkmapComparation(newlinkmapurl,oldlinkmapurl,False)
             linkmapcomparation = open(tuple[0]+tuple[1])
-            output.write('\n\n执行文件对比如下:\n')
+            linkmaphtmlcomparation = open(tuple[0]+tuple[2])
             for line in linkmapcomparation:
                 output.write(line)
+            for line in linkmaphtmlcomparation:
+                output.writeHtml(line)
             linkmapcomparation.close()
+            linkmaphtmlcomparation.close()
             shutil.rmtree(tuple[0])
         output.closeOutput()
 
         if len(emailaddr) > 0:
             emailhandler = Email('yy-pgone@yy.com','Guozhi1221')
-            emailhandler.sendmail('ipa compare result',emailaddr,[],[outputfile],'ipa test')
+            comparationfile = open(globaldir+'compareresult.html')
+            emailcontent = ''
+            for line in comparationfile:
+                emailcontent += line
+            emailcontent += '<div style="color:red">注：更详细内容在附件中</div>'
+            comparationfile.close()
+            emailhandler.sendmail('ipa compare result',emailaddr,['fangyang@yy.com'],[outputfile],emailcontent)
 		
-        shutil.rmtree(globaldir)
+#shutil.rmtree(globaldir)
 
     except Usage, err:
         print >>sys.stderr, err.msg
